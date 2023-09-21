@@ -6,12 +6,17 @@
 #include <stdlib.h>
 
 // macros
+#define quantum 2
 
 // estruturas
 struct processo {
   int id; 
-  int duracao_pico;
   int tempo_chegada;
+  int duracao_pico;
+  int tempo_termino; 
+  int tempo_retorno; 
+  int tempo_resposta; 
+  int tempo_espera; 
 };
 
 // protótipos
@@ -85,14 +90,23 @@ int contar_processos(FILE *arquivo) {
 }
 
 // Função de comparação para qsort (ordenação por duração do pico)
-int compararPorDuracaoPico(const void *a, const void *b) {
+int compararProcessos(const void *a, const void *b) {
   const struct processo *processoA = (const struct processo *)a;
   const struct processo *processoB = (const struct processo *)b;
-  return processoA->duracao_pico - processoB->duracao_pico;
+
+  // Primeiro, compara pelo tempo de chegada
+  if (processoA->tempo_chegada < processoB->tempo_chegada) return -1;
+  if (processoA->tempo_chegada > processoB->tempo_chegada) return 1;
+
+  // Se o tempo de chegada for igual, compara pela duração de pico
+  if (processoA->duracao_pico < processoB->duracao_pico) return -1;
+  if (processoA->duracao_pico > processoB->duracao_pico) return 1;
+
+  // Se ambos forem iguais, mantenha a ordem original
+  return 0;
 }
 
 void simula_fcfs(int qtd_processos, struct processo *processos) {
-  int tempo_total[qtd_processos];
   int tempo_espera_total = 0;
   int tempo_retorno_total = 0;
   int tempo_resposta_total = 0;
@@ -100,24 +114,26 @@ void simula_fcfs(int qtd_processos, struct processo *processos) {
   for (int i = 0; i < qtd_processos; i++) {
     int tempo_espera, tempo_resposta, tempo_retorno;
     
-    if (i == 0 || processos[i].tempo_chegada > tempo_total[i]) {
-      tempo_total[i] = processos[i].tempo_chegada + processos[i].duracao_pico;
+    if (i == 0 || processos[i].tempo_chegada > processos[i-1].tempo_termino) {
+      //tempo_total[i] = processos[i].tempo_chegada + processos[i].duracao_pico;
+      processos[i].tempo_termino = processos[i].tempo_chegada + processos[i].duracao_pico;
+
     } else {
-      tempo_total[i] = tempo_total[i-1] + processos[i].duracao_pico;
+      processos[i].tempo_termino = processos[i-1].tempo_termino + processos[i].duracao_pico;
     }
   
-    tempo_retorno = tempo_total[i] - processos[i].tempo_chegada;
-    tempo_espera = tempo_total[i] - processos[i].duracao_pico - processos[i].tempo_chegada;
+    processos[i].tempo_retorno = processos[i].tempo_termino - processos[i].tempo_chegada;
+    processos[i].tempo_espera = processos[i].tempo_termino - processos[i].duracao_pico - processos[i].tempo_chegada;
 
     if (i == 0) {
-      tempo_resposta = 0 - processos[i].tempo_chegada;
+      processos[i].tempo_resposta = 0 - processos[i].tempo_chegada;
     } else {
-      tempo_resposta = tempo_total[i-1] - processos[i].tempo_chegada;
+      processos[i].tempo_resposta = processos[i-1].tempo_termino - processos[i].tempo_chegada;
     }
 
-    tempo_retorno_total += tempo_retorno;
-    tempo_resposta_total += tempo_resposta;
-    tempo_espera_total += tempo_espera;
+    tempo_retorno_total += processos[i].tempo_retorno;
+    tempo_resposta_total += processos[i].tempo_resposta;
+    tempo_espera_total += processos[i].tempo_espera;
   }
 
   float tempo_medio_retorno = (float)tempo_retorno_total / qtd_processos;
@@ -129,64 +145,157 @@ void simula_fcfs(int qtd_processos, struct processo *processos) {
 
 void simula_sfj(int qtd_processos, struct processo *processos) {
   // Ordena os processos por duração do pico (SJF)
-  qsort(processos, qtd_processos, sizeof(struct processo), compararPorDuracaoPico);
-
+  qsort(processos, qtd_processos, sizeof(struct processo), compararProcessos);
+ 
+  // tempos
+  int tempo_termino[qtd_processos];
   int tempo_total[qtd_processos];
   int tempo_espera_total = 0;
   int tempo_retorno_total = 0;
   int tempo_resposta_total = 0;
 
+  // Listas auxiliares para o processamento dos processos
+  struct processo copia_processos[qtd_processos];
+  struct processo concluidos[qtd_processos];
+  struct processo fila_de_prontos[qtd_processos];
+
+
   for (int i = 0; i < qtd_processos; i++) {
-    int tempo_espera, tempo_resposta, tempo_retorno;
-    
-    if (i == 0 || processos[i].tempo_chegada > tempo_total[i]) {
-      tempo_total[i] = processos[i].tempo_chegada + processos[i].duracao_pico;
+    printf("Processo %d chegada: %d pico: %d\n", processos[i].id, processos[i].tempo_chegada, processos[i].duracao_pico);
+    if(i == 0) { 
+      fila_de_prontos[i] = processos[0];
+      tempo_termino[i] =  processos[0].tempo_chegada + processos[0].duracao_pico;
+      // calculando tempo de termino, espera, retorno e resposta
+      copia_processos[i] = processos[0];
+      copia_processos[i].tempo_retorno = processos[i].tempo_termino - processos[i].tempo_chegada;
+      copia_processos[i].tempo_termino =  processos[i].tempo_chegada + processos[i].duracao_pico;
+      copia_processos[i].tempo_espera = processos[i].tempo_termino - processos[i].duracao_pico - processos[i].tempo_chegada;
+      copia_processos[i].tempo_resposta = 0; // primeiro processo
+     
+      // Adicionando e verificando processos na fila de prontos
+      for(int j = 0; j < qtd_processos; j++) {
+        if(processos[j].tempo_chegada < processos[i].tempo_termino) {
+          int existe_em_prontos = 0;
+          for(int k = 0; k < qtd_processos; k++) {
+            if(fila_de_prontos[k].id == processos[j].id) {
+              existe_em_prontos = 1;
+              break;
+            }
+          }
+          // adiciona a fila de prontos
+          if (!existe_em_prontos) {
+            fila_de_prontos[i] = processos[j];
+          }
+        }
+      }
+
+      // Adicionando e verificando processos na fila de concluídos
+      for(int j = 0; j < qtd_processos; j++) {
+        int existe_em_concluidos = 0;
+        for(int k = 0; k < qtd_processos; k++) {
+          if(concluidos[k].id == processos[j].id) {
+            existe_em_concluidos = 1;
+            break;
+          }
+        }
+        // adiciona a fila de concluídos
+        if(!existe_em_concluidos) {
+          concluidos[i] = processos[i];
+        }
+      }
     } else {
-      tempo_total[i] = tempo_total[i-1] + processos[i].duracao_pico;
+      if(i < qtd_processos && fila_de_prontos[i].id == 0 && i >= 0) {
+        for(int j = 0; j < qtd_processos; j++) {
+          int existe_em_concluidos = 0;
+          for(int k = 0; k < qtd_processos; k++) {
+            if(concluidos[k].id == processos[j].id) {
+              existe_em_concluidos = 1;
+              break;
+            }
+          }
+          // adiciona a fila de prontos
+          if(!existe_em_concluidos) {
+            fila_de_prontos[i] = processos[j];
+          }
+        }
+      }
+
+      struct processo sort_pico[qtd_processos];
+      for(int j = 0; j < qtd_processos; j++) {
+        sort_pico[j] = fila_de_prontos[j];
+      } 
+
+      for(int j = 0; j < qtd_processos; j++) {
+        for(int k = 0; k < qtd_processos; k++) {
+          if(sort_pico[k].duracao_pico > sort_pico[k+1].duracao_pico) {
+            // troca entre processos
+            struct processo temp = sort_pico[k];
+            sort_pico[k] = sort_pico[k + 1];
+            sort_pico[k + 1] = temp;
+          }
+        }
+      }
+
+      struct processo a_executar = sort_pico[0];
+      int tempo_termino_anterior = tempo_termino[i - 1];
+
+      if(a_executar.tempo_chegada > tempo_termino_anterior) {
+        tempo_termino[i] = a_executar.tempo_chegada + a_executar.duracao_pico;
+      } else {
+        tempo_termino[i] = tempo_termino_anterior + a_executar.duracao_pico;
+      }
+
+      // processos resolvidos
+      copia_processos[i] = a_executar;
+      copia_processos[i].tempo_termino = tempo_termino[i];
+      copia_processos[i].tempo_retorno = tempo_termino[i] - a_executar.tempo_chegada - a_executar.duracao_pico;
+      copia_processos[i].tempo_espera = tempo_termino[i] - a_executar.tempo_chegada;
+      copia_processos[i].tempo_resposta = tempo_termino_anterior - a_executar.tempo_chegada;
+
+      for(int j = 0; j < qtd_processos; j++) {
+        if(processos[j].tempo_chegada <= tempo_termino[i]) {
+          int existe_na_fila = 0;
+          for(int k = 0; k  <  qtd_processos; k++) {
+            if(fila_de_prontos[k].id == processos[j].id) {
+              existe_na_fila = 1;
+              break;
+            }
+          }
+
+          int existe_em_concluidos = 0;
+          for(int k = 0; k  <  qtd_processos; k++) {
+            if(concluidos[k].id == processos[j].id) {
+              existe_em_concluidos = 1;
+              break;
+            }
+          }
+
+          if(!existe_na_fila && !existe_em_concluidos) {
+            fila_de_prontos[i] = processos[i];
+          }
+
+        }
+      }
+
+      // remove da fila de prontos
+      for(int j = 0; j < qtd_processos; j++) {
+        if(fila_de_prontos[j].id == a_executar.id) {
+          fila_de_prontos[j].id = 0; 
+        }
+      }
     }
-  
-    tempo_retorno = tempo_total[i] - processos[i].tempo_chegada;
-    tempo_espera = tempo_total[i] - processos[i].duracao_pico - processos[i].tempo_chegada;
-
-    if (i == 0) {
-      tempo_resposta = 0 - processos[i].tempo_chegada;
-    } else {
-      tempo_resposta = tempo_total[i-1] - processos[i].tempo_chegada;
-    }
-
-    printf("Processo %d:\n", processos[i].id);
-    printf("Tempo de Resposta: %d\n", tempo_resposta);
-    printf("Tempo de Espera: %d\n", tempo_espera);
-    printf("Tempo de Retorno: %d\n\n", tempo_retorno);
-    printf("tempo total: %d\n\n", tempo_total[i]);
-
-    tempo_retorno_total += tempo_retorno;
-    tempo_resposta_total += tempo_resposta;
-    tempo_espera_total += tempo_espera;
-
-    /*if (tempo_total < processos[i].tempo_chegada) {
-      tempo_total = processos[i].tempo_chegada;
-    }
-
-    int tempo_resposta = tempo_total - processos[i].tempo_chegada;
-    int tempo_retorno = tempo_resposta + processos[i].duracao_pico;
-    int tempo_espera = tempo_retorno - processos[i].duracao_pico;
-
-    tempo_total += processos[i].duracao_pico;
-
-    tempo_resposta_total += tempo_resposta;
-    tempo_retorno_total += tempo_retorno;
-    tempo_espera_total += tempo_espera;
-
-    */
   }
-
-  float tempo_medio_resposta = (float)tempo_resposta_total / qtd_processos;
-  float tempo_medio_retorno = (float)tempo_retorno_total / qtd_processos;
-  float tempo_medio_espera = (float)tempo_espera_total / qtd_processos;
+  float tempo_medio_resposta = 0;
+  float tempo_medio_retorno = 0;
+  float tempo_medio_espera = 0;
+  tempo_medio_resposta = tempo_resposta_total / qtd_processos;
+  tempo_medio_retorno = tempo_retorno_total / qtd_processos;
+  tempo_medio_espera = tempo_espera_total / qtd_processos;
 
   printf("SJF %.1f %.1f %.1f \n", tempo_medio_retorno, tempo_medio_resposta, tempo_medio_espera);
 }
+
+
 void simula_rr(int qtd_processos, struct processo *processos, int qq) {
     int tempo_total = 0;
     int tempo_espera_total = 0;
