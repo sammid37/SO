@@ -13,7 +13,8 @@
 struct processo {
   int id; 
   int tempo_chegada;
-  int duracao_pico;
+  int duracao_pico; 
+  int pico_restante; 
   int tempo_termino; 
   int tempo_retorno; 
   int tempo_resposta; 
@@ -25,6 +26,7 @@ struct filaProcessos {
   int inicio;
   int fim;
   int tamanho;
+  int qtd_fila;
 };
 
 // protótipos
@@ -34,14 +36,20 @@ int compararProcessosTempoPico(const void *a, const void *b); // compara pelo te
 
 bool contemObjeto(struct processo array[], int tamanho, int id_procura); // verifica se um determinado elemento está contido no array
 
+struct processo* copiarProcessos(int qtd_processos, const struct processo *processos);
+
+// filas de escalonamento
 void simula_fcfs(int qtd_processos, struct processo *processos);
 void simula_sfj(int qtd_processos, struct processo *processos);
 void simula_rr(int qtd_processos, struct processo *processos, int qq); // qq = 2
-void imprime_resultado(int n_processos, float tempo_medio[]); // array de tempos
 
+// funções para operações de filas
 struct filaProcessos *criar_fila_processos(int processos_na_fila);
 struct processo *obterUltimoConcluido(struct filaProcessos *fila_concluidos);
-
+int fila_vazia(struct filaProcessos *fila);
+void enfileirar(struct filaProcessos *fila, struct processo *processo);
+void exibirfilaProcessos(struct filaProcessos *fila);
+struct processo *desenfileirar(struct filaProcessos *fila);
 
 // main
 void main() {
@@ -50,7 +58,6 @@ void main() {
   // arq = fopen("testes/teste1.txt","r"); // teste1 -> exemplo dos slides
   arq = fopen("professor.txt","r"); // teste1 -> exemplo dos slides
 
-
   // Verificando leitura do arquivo 
   if(arq == NULL) {
     printf("Não foi possível completar a solicitação!\nEncerrando...\n");
@@ -58,7 +65,6 @@ void main() {
   }
 
   qtd_processos = contar_processos(arq);
-  // printf("Foram encontrados %d processos no arquivo.\n", qtd_processos);
 
   // Retorna ao início do arquivo para ler os processos
   fseek(arq, 0, SEEK_SET);
@@ -67,18 +73,24 @@ void main() {
   struct processo *processos = malloc(qtd_processos * sizeof(struct processo));
   while (fscanf(arq, "%d %d", &processos[num_processos].tempo_chegada, &processos[num_processos].duracao_pico) == 2) {
     processos[num_processos].id = num_processos + 1;
+    processos[num_processos].pico_restante = processos[num_processos].duracao_pico;
+
     num_processos++;
   }
 
   simula_fcfs(qtd_processos, processos);
   simula_sfj(qtd_processos, processos);
-  simula_rr(qtd_processos, processos, 2);
+  simula_rr(qtd_processos, processos, quantum);
 
   free(processos);
   fclose(arq);
 }
 
-// implementação de funções
+/**
+ * Conta a quantidade de linhas do arquivo de entrada, correspondendo ao número de processos
+ * @param arquivo arquivo de entrada
+ * @returns a quantidade de processos no arquivo
+*/
 int contar_processos(FILE *arquivo) {
   int contador = 0;
   char caractere;
@@ -116,7 +128,6 @@ int compararProcessosTempoPico(const void *a, const void *b) {
 int compararProcessosTempoChegada(const void *a, const void *b) {
   const struct processo *processoA = (const struct processo *)a;
   const struct processo *processoB = (const struct processo *)b;
-
   // Primeiro, compara pelo tempo de chegada
   if (processoA->tempo_chegada < processoB->tempo_chegada) return -1;
   if (processoA->tempo_chegada > processoB->tempo_chegada) return 1;
@@ -135,16 +146,6 @@ bool contemObjeto(struct processo array[], int tamanho, int id_procura) {
   return false; 
 }
 
-struct filaProcessos *criar_fila_processos(int processos_na_fila) {
-  struct filaProcessos *fila = (struct filaProcessos *)malloc(sizeof(struct filaProcessos));
-  fila->processos = (struct processo **)malloc(sizeof(struct processo *) * processos_na_fila);
-  fila->inicio = 0;
-  fila->fim = -1;
-  fila->tamanho = processos_na_fila;
-
-  return fila;
-}
-
 struct processo *obterUltimoConcluido(struct filaProcessos *fila_concluidos) {
   if (fila_concluidos->inicio <= fila_concluidos->fim) {
       return fila_concluidos->processos[fila_concluidos->fim];
@@ -153,7 +154,59 @@ struct processo *obterUltimoConcluido(struct filaProcessos *fila_concluidos) {
   }
 }
 
+struct filaProcessos *criar_fila_processos(int processos_na_fila) {
+  struct filaProcessos *fila = (struct filaProcessos *)malloc(sizeof(struct filaProcessos));
+  if (fila == NULL) {
+    printf("Não foi possível alocar memória para a fila.\n");
+    exit(1);
+  }
+
+  fila->processos = (struct processo **)malloc(sizeof(struct processo *) * processos_na_fila);
+  if(fila->processos == NULL) {
+    printf("Não foi possível alocar memória para os processos na fila.\n");
+    exit(1);
+  }
+
+  fila->inicio = -1; // 0
+  fila->fim = -1;
+  fila->tamanho = processos_na_fila;
+  fila->qtd_fila = 0;
+
+  return fila;
+}
+
 // Função para enfileirar um processo na fila ready
+// void enfileirar(struct filaProcessos *fila, struct processo *processo) {
+//   if ((fila->fim + 1) % fila->tamanho == fila->inicio) {
+//     printf("Erro: a fila está cheia!\n");
+//     exit(1);
+//   }
+
+//   if(fila->inicio == -1) {
+//     fila->inicio = 0;
+//   }
+
+//   fila->fim = (fila->fim + 1) % fila->tamanho;
+//   fila->processos[fila->fim] = processo;
+// }
+
+// Função para desenfileirar um processo da fila ready
+// struct processo *desenfileirar(struct filaProcessos *fila) {
+//   if (fila->inicio == -1) { 
+//     return NULL;
+//   }
+
+//   struct processo *processo = fila->processos[fila->inicio];
+//   if (fila->inicio == fila->fim) {
+//     // Único elemento na fila, resete os índices para vazia
+//     fila->inicio = -1;
+//     fila->fim = -1;
+//   } else {
+//     fila->inicio = (fila->inicio + 1) % fila->tamanho;
+//   }
+//   return processo;
+// }
+
 void enfileirar(struct filaProcessos *fila, struct processo *processo) {
   if (fila->fim == fila->tamanho - 1) {
     // A fila está cheia, não podemos enfileirar mais processos
@@ -164,22 +217,6 @@ void enfileirar(struct filaProcessos *fila, struct processo *processo) {
   fila->processos[fila->fim] = processo;
 }
 
-int fila_vazia(struct filaProcessos *fila) {
-  return fila->inicio > fila->fim;
-}
-
-void exibirfilaProcessos(struct filaProcessos *fila, char nome_fila) {
-  if (fila->inicio > fila->fim) {
-    printf("Fila %c vazia.\n", nome_fila);
-  } else {
-    printf("Processos na fila de prontos:\n");
-    for (int i = fila->inicio; i <= fila->fim; i++) {
-      struct processo *processo = fila->processos[i];
-      printf("ID: %d, Tempo de Chegada: %d, Duração do Pico: %d\n", processo->id, processo->tempo_chegada, processo->duracao_pico);
-    }
-  }
-}
-// Função para desenfileirar um processo da fila ready
 struct processo *desenfileirar(struct filaProcessos *fila) {
   if (fila->inicio > fila->fim) {
     // A fila está vazia, não podemos desenfileirar
@@ -190,6 +227,41 @@ struct processo *desenfileirar(struct filaProcessos *fila) {
   return processo;
 }
 
+
+int fila_vazia(struct filaProcessos *fila) {
+  return fila->inicio > fila->fim;
+}
+
+// void exibirfilaProcessos(struct filaProcessos *fila) {
+//   if (fila->inicio == -1) {
+//     printf("Fila vazia.\n");
+//     return;
+//   }
+
+//   int i = fila->inicio;
+
+//   do {
+//     printf("ID: %d, Tempo de Chegada: %d, Duração do Pico: %d\n",
+//            fila->processos[i]->id, fila->processos[i]->tempo_chegada,
+//            fila->processos[i]->duracao_pico);
+    
+//     i = (i + 1) % fila->tamanho;
+//   } while (i != (fila->fim + 1) % fila->tamanho);
+// }
+
+void exibirfilaProcessos(struct filaProcessos *fila) {
+  if (fila->inicio > fila->fim) {
+    printf("Fila vazia.\n");
+  } else {
+   
+    for (int i = fila->inicio; i <= fila->fim; i++) {
+      struct processo *processo = fila->processos[i];
+      printf("ID: %d, Tempo de Chegada: %d, Duração do Pico: %d\n", processo->id, processo->tempo_chegada, processo->duracao_pico);
+    }
+  }
+}
+
+
 bool buscaElementoNaFila(struct filaProcessos *fila, struct processo *elemento) {
   for (int i = fila->inicio; i <= fila->fim; i++) {
     if (fila->processos[i] == elemento) {
@@ -199,6 +271,25 @@ bool buscaElementoNaFila(struct filaProcessos *fila, struct processo *elemento) 
   return false; // Elemento não encontrado na fila
 }
 
+// Função para copiar processos
+struct processo* copiarProcessos(int qtd_processos, const struct processo *processos) {
+  // Criar uma nova estrutura para armazenar a cópia dos processos
+  struct processo *copia_processos = (struct processo *)malloc(qtd_processos * sizeof(struct processo));
+  
+  if (copia_processos == NULL) {
+      // Lidar com erros de alocação de memória, se necessário
+      perror("Erro ao alocar memória para a cópia dos processos");
+      exit(EXIT_FAILURE);
+  }
+
+  // Copiar os processos para a nova estrutura
+  for (int i = 0; i < qtd_processos; i++) {
+      copia_processos[i] = processos[i];
+  }
+
+  // Retorna a cópia dos processos
+  return copia_processos;
+}
 
 //************************************* Implementação de filas de processos 
 /**
@@ -209,7 +300,8 @@ bool buscaElementoNaFila(struct filaProcessos *fila, struct processo *elemento) 
 */
 void simula_fcfs(int qtd_processos, struct processo *processos) {
   // Ordenar processos por ordem de chegada na CPU
-  qsort(processos, qtd_processos, sizeof(struct processo), compararProcessosTempoChegada);
+  struct processo *copia = copiarProcessos(qtd_processos, processos);
+  qsort(copia, qtd_processos, sizeof(struct processo), compararProcessosTempoChegada);
 
   int tempo_espera_total = 0;
   int tempo_retorno_total = 0;
@@ -218,25 +310,25 @@ void simula_fcfs(int qtd_processos, struct processo *processos) {
   for (int i = 0; i < qtd_processos; i++) {
     int tempo_espera, tempo_resposta, tempo_retorno;
     
-    if (i == 0 || processos[i].tempo_chegada > processos[i-1].tempo_termino) {
-      processos[i].tempo_termino = processos[i].tempo_chegada + processos[i].duracao_pico;
+    if (i == 0 || copia[i].tempo_chegada > copia[i-1].tempo_termino) {
+      copia[i].tempo_termino = copia[i].tempo_chegada + copia[i].duracao_pico;
 
     } else {
-      processos[i].tempo_termino = processos[i-1].tempo_termino + processos[i].duracao_pico;
+      copia[i].tempo_termino = copia[i-1].tempo_termino + copia[i].duracao_pico;
     }
   
-    processos[i].tempo_retorno = processos[i].tempo_termino - processos[i].tempo_chegada;
-    processos[i].tempo_espera = processos[i].tempo_termino - processos[i].duracao_pico - processos[i].tempo_chegada;
+    copia[i].tempo_retorno = copia[i].tempo_termino - copia[i].tempo_chegada;
+    copia[i].tempo_espera = copia[i].tempo_termino - copia[i].duracao_pico - copia[i].tempo_chegada;
 
     if (i == 0) {
-      processos[i].tempo_resposta = 0 - processos[i].tempo_chegada;
+      copia[i].tempo_resposta = 0 - copia[i].tempo_chegada;
     } else {
-      processos[i].tempo_resposta = processos[i-1].tempo_termino - processos[i].tempo_chegada;
+      copia[i].tempo_resposta = copia[i-1].tempo_termino - copia[i].tempo_chegada;
     }
 
-    tempo_retorno_total += processos[i].tempo_retorno;
-    tempo_resposta_total += processos[i].tempo_resposta;
-    tempo_espera_total += processos[i].tempo_espera;
+    tempo_retorno_total += copia[i].tempo_retorno;
+    tempo_resposta_total += copia[i].tempo_resposta;
+    tempo_espera_total += copia[i].tempo_espera;
   }
 
   float tempo_medio_retorno = (float)tempo_retorno_total / qtd_processos;
@@ -244,6 +336,7 @@ void simula_fcfs(int qtd_processos, struct processo *processos) {
   float tempo_medio_espera = (float)tempo_espera_total / qtd_processos;
 
   printf("FCFS %.1f %.1f %.1f \n", tempo_medio_retorno, tempo_medio_resposta, tempo_medio_espera);
+  free(copia);
 }
 
 /**
@@ -254,7 +347,7 @@ void simula_fcfs(int qtd_processos, struct processo *processos) {
 */
 void simula_sfj(int qtd_processos, struct processo *processos) {
   // Listas auxiliares para o processamento dos processos
-
+  struct processo *copia = copiarProcessos(qtd_processos, processos);
   struct processo *processo_a_executar = NULL; 
   struct filaProcessos *fila_de_prontos = criar_fila_processos(qtd_processos); // inicialmente vazia
   struct filaProcessos *fila_concluidos = criar_fila_processos(qtd_processos); // inicialmente vazia
@@ -273,13 +366,13 @@ void simula_sfj(int qtd_processos, struct processo *processos) {
   int tempo_atual = 0;
 
   // Ordena os processos por duração do pico (SJF)
-  qsort(processos, qtd_processos, sizeof(struct processo), compararProcessosTempoPico);
+  qsort(copia, qtd_processos, sizeof(struct processo), compararProcessosTempoPico);
 
   while (qtd_processos_concluidos < qtd_processos) { // Adicione uma condição de término
     struct processo *processo_a_executar = NULL;
 
     for (int i = 0; i < qtd_processos; i++) {
-      struct processo *processo = &processos[i];
+      struct processo *processo = &copia[i];
 
       if (processo->tempo_chegada <= tempo_atual && !buscaElementoNaFila(fila_concluidos, processo)) {
         if (processo_a_executar == NULL || processo->duracao_pico < processo_a_executar->duracao_pico) {
@@ -307,9 +400,9 @@ void simula_sfj(int qtd_processos, struct processo *processos) {
   float tempo_medio_retorno = 0, tempo_medio_espera = 0, tempo_medio_resposta = 0;
 
   for (int i = 0; i < qtd_processos; i++) {
-    tempo_medio_retorno += processos[i].tempo_retorno;
-    tempo_medio_espera += processos[i].tempo_espera;
-    tempo_medio_resposta += processos[i].tempo_espera;
+    tempo_medio_retorno += copia[i].tempo_retorno;
+    tempo_medio_espera += copia[i].tempo_espera;
+    tempo_medio_resposta += copia[i].tempo_espera;
 
   }
 
@@ -318,6 +411,7 @@ void simula_sfj(int qtd_processos, struct processo *processos) {
   tempo_medio_resposta /= qtd_processos;
   
   printf("SJF %.1f %.1f %.1f \n", tempo_medio_retorno, tempo_medio_resposta, tempo_medio_espera);
+  free(copia);
 }
 
 /**
@@ -330,76 +424,79 @@ void simula_sfj(int qtd_processos, struct processo *processos) {
 
 void simula_rr(int qtd_processos, struct processo *processos, int qq) {
   // Listas auxiliares para o processamento dos processos
-  struct processo *processo_atual = NULL;
+  struct processo *copia = copiarProcessos(qtd_processos, processos);
   struct filaProcessos *fila_de_prontos = criar_fila_processos(qtd_processos);
-  struct filaProcessos *fila_concluidos = criar_fila_processos(qtd_processos);
-
   // Inicialização de variáveis de controle
   int tempo_atual = 0;
   int qtd_processos_concluidos = 0;
-
+  int i = 0;
+  int j = 0;
   // Ordena os processos por tempo de chegada e duração do pico (Round Robin)
-  qsort(processos, qtd_processos, sizeof(struct processo *), compararProcessosTempoPico);
+  qsort(copia, qtd_processos, sizeof(struct processo), compararProcessosTempoChegada);
 
-  while (qtd_processos_concluidos < qtd_processos) {
-    // Adiciona processos à fila de prontos que já chegaram no tempo atual
-    for (int i = 0; i < qtd_processos; i++) {
-      if (processos[i].tempo_chegada <= tempo_atual && !fila_vazia(fila_de_prontos)) {
-        enfileirar(fila_de_prontos, &processos[i]);
-      }
+  while (i < qtd_processos || !(fila_de_prontos->inicio > fila_de_prontos->fim)) {
+    if (i < qtd_processos && copia[i].tempo_chegada <= tempo_atual) {
+      enfileirar(fila_de_prontos, &copia[i]);
+      printf("Adicionado a fila de prontos: processo %d\n", copia[i].id);
+      i++;
+      continue;
     }
 
-    // Se não houver processo em execução ou o processo terminou seu quantum, escolha o próximo a executar
-    if (processo_atual == NULL) {
-      if (!fila_vazia(fila_de_prontos)) {
-          processo_atual = desenfileirar(fila_de_prontos);
+    exibirfilaProcessos(fila_de_prontos);
+
+    if(!(fila_de_prontos->inicio > fila_de_prontos->fim)) {
+      struct processo *processo_atual = desenfileirar(fila_de_prontos); // return processo ou null
+      j = processo_atual->id-1;
+      printf("Processo atual: prc %d\n", processo_atual[i].id);
+      printf("j: %d\n", j);
+
+      if(copia[j-1].tempo_resposta == -1) {
+        copia[j-1].tempo_resposta = tempo_atual - copia[j-1].tempo_chegada;
+      }
+
+      if(copia[j-1].pico_restante > qq) {
+        tempo_atual += qq;
+        copia[j-1].pico_restante -= qq;
+
+        while (i < qtd_processos && copia[j-1].tempo_chegada <= tempo_atual) {
+          enfileirar(fila_de_prontos, &copia[i]);
+          i++;
+        }
+
+        enfileirar(fila_de_prontos, &copia[j-1]);
+
       } else {
-          tempo_atual++;
-          continue;
+        tempo_atual += copia[j-1].pico_restante;
+        copia[j-1].pico_restante = 0; 
+        copia[j-1].tempo_termino = tempo_atual; 
+        copia[j-1].tempo_retorno = copia[j-1].tempo_termino - copia[j-1].tempo_chegada; 
+        copia[j-1].tempo_espera = copia[j-1].tempo_resposta - copia[j-1].duracao_pico;
+        copia[j-1].tempo_resposta = copia[j-1].tempo_termino - copia[j-1].tempo_chegada; 
       }
-    }
-
-    // Execute o processo atual por um quantum de tempo
-    for (int i = 0; i < qq; i++) {
+    } else {
       tempo_atual++;
-
-      if (--processo_atual->duracao_pico == 0) {
-        processo_atual->tempo_termino = tempo_atual;
-        processo_atual->tempo_retorno = processo_atual->tempo_termino - processo_atual->tempo_chegada;
-        processo_atual->tempo_espera = processo_atual->tempo_retorno - processo_atual->duracao_pico;
-
-        enfileirar(fila_concluidos, processo_atual);
-        qtd_processos_concluidos++;
-
-        processo_atual = NULL;
-        break;
-      }
-    }
-
-    // Reinsira o processo atual na fila de prontos
-    if (processo_atual != NULL) {
-        enfileirar(fila_de_prontos, processo_atual);
     }
   }
 
   // Calcule os tempos médios de retorno e espera
   float tempo_medio_retorno = 0;
   float tempo_medio_espera = 0;
+  float tempo_medio_resposta = 0;
 
   for (int i = 0; i < qtd_processos; i++) {
-    tempo_medio_retorno += processos[i].tempo_retorno;
-    tempo_medio_espera += processos[i].tempo_espera;
+    tempo_medio_retorno += copia[i].tempo_retorno;
+    tempo_medio_espera += copia[i].tempo_espera;
+    tempo_medio_resposta += copia[i].tempo_resposta;
   }
 
   tempo_medio_retorno /= qtd_processos;
   tempo_medio_espera /= qtd_processos;
+  tempo_medio_resposta /= qtd_processos;
 
-  printf("Tempo Médio de Retorno (RR): %.2f\n", tempo_medio_retorno);
-  printf("Tempo Médio de Espera (RR): %.2f\n", tempo_medio_espera);
+  printf("RR %.1f %.1f %.1f \n", tempo_medio_retorno, tempo_medio_resposta, tempo_medio_espera);
 
   // Libere a memória alocada para as filas
   free(fila_de_prontos->processos);
   free(fila_de_prontos);
-  free(fila_concluidos->processos);
-  free(fila_concluidos);
+  free(copia);
 }
