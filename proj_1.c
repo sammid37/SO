@@ -55,7 +55,7 @@ struct processo *desenfileirar(struct filaProcessos *fila);
 void main() {
   int qtd_processos = 0, num_processos = 0;
   FILE *arq;
-  // arq = fopen("testes/teste1.txt","r"); // teste1 -> exemplo dos slides
+  // arq = fopen("testes/teste9.txt","r"); // teste1 -> exemplo dos slides
   arq = fopen("professor.txt","r"); // teste1 -> exemplo dos slides
 
   // Verificando leitura do arquivo 
@@ -72,8 +72,11 @@ void main() {
   // Armazena dados em um array struct processo (alocado dinamicamente)
   struct processo *processos = malloc(qtd_processos * sizeof(struct processo));
   while (fscanf(arq, "%d %d", &processos[num_processos].tempo_chegada, &processos[num_processos].duracao_pico) == 2) {
-    processos[num_processos].id = num_processos + 1;
+    processos[num_processos].id = num_processos /*+ 1*/;
     processos[num_processos].pico_restante = processos[num_processos].duracao_pico;
+    processos[num_processos].tempo_resposta = -1;
+    processos[num_processos].tempo_retorno = -1;
+    processos[num_processos].tempo_espera = -1;
 
     num_processos++;
   }
@@ -154,26 +157,36 @@ struct processo *obterUltimoConcluido(struct filaProcessos *fila_concluidos) {
   }
 }
 
-struct filaProcessos *criar_fila_processos(int processos_na_fila) {
-  struct filaProcessos *fila = (struct filaProcessos *)malloc(sizeof(struct filaProcessos));
-  if (fila == NULL) {
-    printf("Não foi possível alocar memória para a fila.\n");
-    exit(1);
-  }
+// struct filaProcessos *criar_fila_processos(int processos_na_fila) {
+//   struct filaProcessos *fila = (struct filaProcessos *)malloc(sizeof(struct filaProcessos));
+//   if (fila == NULL) {
+//     printf("Não foi possível alocar memória para a fila.\n");
+//     exit(1);
+//   }
 
-  fila->processos = (struct processo **)malloc(sizeof(struct processo *) * processos_na_fila);
-  if(fila->processos == NULL) {
-    printf("Não foi possível alocar memória para os processos na fila.\n");
-    exit(1);
-  }
+//   fila->processos = (struct processo **)malloc(sizeof(struct processo *) * processos_na_fila);
+//   if(fila->processos == NULL) {
+//     printf("Não foi possível alocar memória para os processos na fila.\n");
+//     exit(1);
+//   }
 
-  fila->inicio = -1; // 0
-  fila->fim = -1;
-  fila->tamanho = processos_na_fila;
-  fila->qtd_fila = 0;
+//   fila->inicio = -1; // 0
+//   fila->fim = -1;
+//   fila->tamanho = processos_na_fila;
+//   fila->qtd_fila = 0;
 
-  return fila;
-}
+//   return fila;
+// }
+
+// struct filaProcessos *criar_fila_processos(int processos_na_fila) {
+//   struct filaProcessos *fila = (struct filaProcessos *)malloc(sizeof(struct filaProcessos));
+//   fila->processos = (struct processo **)malloc(sizeof(struct processo *) * processos_na_fila);
+//   fila->inicio = 0;
+//   fila->fim = -1;
+//   fila->tamanho = processos_na_fila;
+
+//   return fila;
+// }
 
 // Função para enfileirar um processo na fila ready
 // void enfileirar(struct filaProcessos *fila, struct processo *processo) {
@@ -207,59 +220,123 @@ struct filaProcessos *criar_fila_processos(int processos_na_fila) {
 //   return processo;
 // }
 
+// void enfileirar(struct filaProcessos *fila, struct processo *processo) {
+//   if (fila->fim == fila->tamanho - 1) {
+//     // A fila está cheia, não podemos enfileirar mais processos
+//     printf("Erro: a fila está cheia!\n");
+//     exit(1);
+//   }
+//   fila->fim++;
+//   fila->processos[fila->fim] = processo;
+// }
+
+// struct processo *desenfileirar(struct filaProcessos *fila) {
+//   if (fila->inicio > fila->fim) {
+//     // A fila está vazia, não podemos desenfileirar
+//     return NULL;
+//   }
+//   struct processo *processo = fila->processos[fila->inicio];
+//   fila->inicio++;
+//   return processo;
+// }
+
+
+// // Função para criar uma fila de processos
+// struct filaProcessos *criar_fila_processos(int processos_na_fila) {
+//   struct filaProcessos *fila = (struct filaProcessos *)malloc(sizeof(struct filaProcessos));
+//   fila->processos = (struct processo **)malloc(sizeof(struct processo *) * processos_na_fila);
+//   fila->inicio = 0;
+//   fila->fim = -1;
+//   fila->tamanho = processos_na_fila;
+//   return fila;
+// }
+
+// // Função para enfileirar um processo
+// void enfileirar(struct filaProcessos *fila, struct processo *processo) {
+//   if (fila->fim == fila->tamanho - 1) {
+//       // A fila está cheia, não podemos enfileirar mais processos
+//       printf("Erro: a fila está cheia!\n");
+//       exit(1);
+//   }
+//   fila->fim++;
+//   fila->processos[fila->fim] = processo;
+// }
+
+// // Função para desenfileirar um processo
+// struct processo *desenfileirar(struct filaProcessos *fila) {
+//   if (fila->inicio > fila->fim) {
+//       // A fila está vazia, não podemos desenfileirar
+//       return NULL;
+//   }
+//   struct processo *processo = fila->processos[fila->inicio];
+//   fila->inicio++;
+//   return processo;
+// }
+
+struct filaProcessos *criar_fila_processos(int processos_na_fila) {
+    struct filaProcessos *fila = (struct filaProcessos *)malloc(sizeof(struct filaProcessos));
+    fila->processos = (struct processo **)malloc(sizeof(struct processo *) * processos_na_fila);
+    fila->inicio = 0;
+    fila->fim = -1;
+    fila->tamanho = processos_na_fila;
+    fila->qtd_fila = 0; // Inicialmente, a fila está vazia
+    return fila;
+}
+
 void enfileirar(struct filaProcessos *fila, struct processo *processo) {
-  if (fila->fim == fila->tamanho - 1) {
-    // A fila está cheia, não podemos enfileirar mais processos
-    printf("Erro: a fila está cheia!\n");
-    exit(1);
-  }
-  fila->fim++;
-  fila->processos[fila->fim] = processo;
+    if (fila->qtd_fila == fila->tamanho) {
+        // A fila está cheia, não podemos enfileirar mais processos
+        printf("Erro: a fila está cheia!\n");
+        exit(1);
+    }
+    fila->fim = (fila->fim + 1) % fila->tamanho; // Avançar para o próximo índice circularmente
+    fila->processos[fila->fim] = processo;
+    fila->qtd_fila++;
 }
 
 struct processo *desenfileirar(struct filaProcessos *fila) {
-  if (fila->inicio > fila->fim) {
-    // A fila está vazia, não podemos desenfileirar
-    return NULL;
-  }
-  struct processo *processo = fila->processos[fila->inicio];
-  fila->inicio++;
-  return processo;
+    if (fila->qtd_fila == 0) {
+        // A fila está vazia, não podemos desenfileirar
+        return NULL;
+    }
+    struct processo *processo = fila->processos[fila->inicio];
+    fila->inicio = (fila->inicio + 1) % fila->tamanho; // Avançar para o próximo índice circularmente
+    fila->qtd_fila--;
+    return processo;
 }
-
 
 int fila_vazia(struct filaProcessos *fila) {
   return fila->inicio > fila->fim;
 }
 
-// void exibirfilaProcessos(struct filaProcessos *fila) {
-//   if (fila->inicio == -1) {
-//     printf("Fila vazia.\n");
-//     return;
-//   }
-
-//   int i = fila->inicio;
-
-//   do {
-//     printf("ID: %d, Tempo de Chegada: %d, Duração do Pico: %d\n",
-//            fila->processos[i]->id, fila->processos[i]->tempo_chegada,
-//            fila->processos[i]->duracao_pico);
-    
-//     i = (i + 1) % fila->tamanho;
-//   } while (i != (fila->fim + 1) % fila->tamanho);
-// }
-
 void exibirfilaProcessos(struct filaProcessos *fila) {
-  if (fila->inicio > fila->fim) {
+  if (fila->inicio == -1) {
     printf("Fila vazia.\n");
-  } else {
-   
-    for (int i = fila->inicio; i <= fila->fim; i++) {
-      struct processo *processo = fila->processos[i];
-      printf("ID: %d, Tempo de Chegada: %d, Duração do Pico: %d\n", processo->id, processo->tempo_chegada, processo->duracao_pico);
-    }
+    return;
   }
+
+  int i = fila->inicio;
+
+  do {
+    printf("ID: %d, Tempo de Chegada: %d, Duração do Pico: %d\n",
+           fila->processos[i]->id, fila->processos[i]->tempo_chegada,
+           fila->processos[i]->duracao_pico);
+    
+    i = (i + 1) % fila->tamanho;
+  } while (i != (fila->fim + 1) % fila->tamanho);
 }
+
+// void exibirfilaProcessos(struct filaProcessos *fila) {
+//   if (fila->inicio > fila->fim) {
+//     printf("Fila vazia.\n");
+//   } else {
+   
+//     for (int i = fila->inicio; i <= fila->fim; i++) {
+//       struct processo *processo = fila->processos[i];
+//       printf("ID: %d, Tempo de Chegada: %d, Duração do Pico: %d\n", processo->id, processo->tempo_chegada, processo->duracao_pico);
+//     }
+//   }
+// }
 
 
 bool buscaElementoNaFila(struct filaProcessos *fila, struct processo *elemento) {
@@ -421,7 +498,6 @@ void simula_sfj(int qtd_processos, struct processo *processos) {
  * @param qq quantum
  * Informa o tempo médio de retorno, resposta e espera
 */
-
 void simula_rr(int qtd_processos, struct processo *processos, int qq) {
   // Listas auxiliares para o processamento dos processos
   struct processo *copia = copiarProcessos(qtd_processos, processos);
@@ -434,44 +510,45 @@ void simula_rr(int qtd_processos, struct processo *processos, int qq) {
   // Ordena os processos por tempo de chegada e duração do pico (Round Robin)
   qsort(copia, qtd_processos, sizeof(struct processo), compararProcessosTempoChegada);
 
-  while (i < qtd_processos || !(fila_de_prontos->inicio > fila_de_prontos->fim)) {
+  // for(int i = 0; i< qtd_processos; i++) {
+  //   printf("Proc %d\n ", copia[i].id);
+  // }
+
+  // enquanto a lista circular não estiver vazia
+  while (i < qtd_processos || !(fila_de_prontos->qtd_fila == 0)) {
     if (i < qtd_processos && copia[i].tempo_chegada <= tempo_atual) {
       enfileirar(fila_de_prontos, &copia[i]);
-      printf("Adicionado a fila de prontos: processo %d\n", copia[i].id);
+      //printf("[it1] Adicionado a fila de prontos: processo %d\n", copia[i].id);
       i++;
       continue;
     }
 
-    exibirfilaProcessos(fila_de_prontos);
-
-    if(!(fila_de_prontos->inicio > fila_de_prontos->fim)) {
+    if(!(fila_de_prontos->qtd_fila == 0)) {
       struct processo *processo_atual = desenfileirar(fila_de_prontos); // return processo ou null
-      j = processo_atual->id-1;
-      printf("Processo atual: prc %d\n", processo_atual[i].id);
-      printf("j: %d\n", j);
+      j = processo_atual->id;
+    
 
-      if(copia[j-1].tempo_resposta == -1) {
-        copia[j-1].tempo_resposta = tempo_atual - copia[j-1].tempo_chegada;
+      if(copia[j].tempo_resposta == -1) {
+        copia[j].tempo_resposta = tempo_atual - copia[j].tempo_chegada;
       }
 
-      if(copia[j-1].pico_restante > qq) {
+      if(copia[j].pico_restante > qq) {
         tempo_atual += qq;
-        copia[j-1].pico_restante -= qq;
+        copia[j].pico_restante -= qq;
 
-        while (i < qtd_processos && copia[j-1].tempo_chegada <= tempo_atual) {
+        while (i < qtd_processos && copia[i].tempo_chegada <= tempo_atual) {
           enfileirar(fila_de_prontos, &copia[i]);
           i++;
         }
 
-        enfileirar(fila_de_prontos, &copia[j-1]);
-
+        enfileirar(fila_de_prontos, &copia[j]);
+      
       } else {
-        tempo_atual += copia[j-1].pico_restante;
-        copia[j-1].pico_restante = 0; 
-        copia[j-1].tempo_termino = tempo_atual; 
-        copia[j-1].tempo_retorno = copia[j-1].tempo_termino - copia[j-1].tempo_chegada; 
-        copia[j-1].tempo_espera = copia[j-1].tempo_resposta - copia[j-1].duracao_pico;
-        copia[j-1].tempo_resposta = copia[j-1].tempo_termino - copia[j-1].tempo_chegada; 
+        tempo_atual += copia[j].pico_restante;
+        copia[j].pico_restante = 0; 
+        copia[j].tempo_termino = tempo_atual; 
+        copia[j].tempo_retorno = copia[j].tempo_termino - copia[j].tempo_chegada; 
+        copia[j].tempo_espera = copia[j].tempo_retorno - copia[j].duracao_pico;
       }
     } else {
       tempo_atual++;
