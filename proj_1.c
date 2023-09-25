@@ -40,8 +40,7 @@ struct processo *desenfileirar(struct filaProcessos *fila);
 void main() {
   int qtd_processos = 0, i = 0;
   FILE *arq;
-  // arq = fopen("testes/teste9.txt","r"); // teste1 -> exemplo dos slides
-  arq = fopen("professor.txt","r"); // teste1 -> exemplo dos slides
+  arq = fopen("professor.txt","r");
 
   // Verificando se a solicitação de leitura do arquivo pode ser atendida 
   if(arq == NULL) {
