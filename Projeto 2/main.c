@@ -22,16 +22,9 @@ struct filaMemoria {
 
 struct memoria ler_referencias(FILE *arquivo);
 
-bool contemObjeto(struct memoria array[], int tamanho, int ref); // verifica se um determinado elemento está contido no array
-
-struct filaMemoria *criar_fila(int mem_na_fila);
-void exibirfila(struct filaMemoria *fila);
-void enfileirar(struct filaProcessos *fila, struct memoria *mem);
-struct memoria *desenfileirar(struct filaMemoria *fila);
-
-int simula_fifo(struct memoria *mem);
-int simula_otm(struct memoria *mem);
-int simula_lru(struct memoria *mem);
+void simula_fifo(struct memoria mem);
+void simula_otm(struct memoria mem);
+void simula_lru(struct memoria mem);
 
 void imprime_result(char fila, int result);
 
@@ -48,16 +41,14 @@ int main() {
   mem = ler_referencias(arquivo);
 
   // Exemplo de uso da estrutura preenchida
-  printf("Quantidade de quadros: %d\n", mem.qtd_quadros);
-  printf("Referências:\n");
-  for (int i = 0; i < mem.qtd_referencias; i++) {
-    printf("%d\n", mem.referencias[i]);
-  }
+  simula_fifo(mem);
+  simula_otm(mem);
+  simula_lru(mem);
 
-  // Libera a memória alocada para o array de referências
-  free(mem.referencias);
-  // Fecha o arquivo
-  fclose(arquivo);
+
+  free(mem.referencias); // Libera a memória alocada para o array de referências
+  
+  fclose(arquivo); // Fecha o arquivo
 
   return 0;
 }
@@ -110,36 +101,66 @@ struct memoria ler_referencias(FILE *arquivo) {
   return mem;
 }
 
-bool contemObjeto(struct processo array[], int tamanho, int id_procura) {
-  for (int i = 0; i < tamanho; i++) {
-    if (array[i].id == id_procura) {
-      return true; 
+void simula_fifo(struct memoria mem) {
+  int faltas = 0;
+  int i = 0, j = 0;
+
+  int ponteiro = 0; // Ponteiro para o quadro mais antigo
+  int pagina_na_memoria = 0; // Flag para verificar se a página existe na memória
+  int *quadros = (int *)malloc(mem.qtd_quadros * sizeof(int));
+
+  
+  if (quadros == NULL) {
+    perror("Erro ao alocar memória para quadros.\nEncerrando...\n");
+    exit(1);
+  }
+
+  // Inicializando quadros
+  for(i = 0; i < mem.qtd_quadros; i++) { quadros[i] = -1; }
+
+  // Percorrendo referências às memórias, adicionando aos quadros e contando faltas de páginas
+  for(i = 0; i < mem.qtd_referencias; i++) {
+    int pagina_referenciada = mem.referencias[i];
+
+    // Percorre os quadros e verifica se a página está na memória
+    for(j = 0; j < mem.qtd_quadros; j++) {
+      if(quadros[j] == pagina_referenciada) {
+        pagina_na_memoria = 1;
+        break;
+      }
+    }
+
+    // Se a página não está na memória, acrescenta aos quadros e contabiliza falta
+    if(!pagina_na_memoria) {
+      quadros[ponteiro] = pagina_referenciada;
+      ponteiro = (ponteiro + 1) % mem.qtd_quadros; // Avança o ponteiro circularmente
+
+      faltas++;
     }
   }
-  return false; 
+
+  printf("FIFO %d\n", faltas);
+
+  free(quadros); // libera a memória alocada
 }
 
-int simula_fifo(struct memoria *mem) {
-  int faltas = 0, ref_cont = 0;
+void simula_otm(struct memoria mem) {
+  int *quadros = (int *)malloc(mem.qtd_quadros * sizeof(int));
+  int ponteiro = 0; // Ponteiro para o quadro mais antigo
+  
+  int faltas = 0;
   int i = 0, j = 0;
-  int **ref_atual = mem->referencias;
 
-  struct filaMemoria fila = criar_fila(mem->qtd_quadros);
+  printf("OTM %d\n", faltas);
 
-  while(ref_cont < mem->qtd_referencias) {
-    /**
-     * todo:
-     * [] verificar se já está na PILHA e a PILHA não está cheia -> empilha (faltas++)
-     * [] se a fila estiver cheia e o elemento atual não for igual ao que está na fila -> desempilha o mais antigo
-     * []
-    */
-    if(fila.qtd_fila < fila.tamanho && !contemObjeto(mem, fila.tamanho, ref_atual)) {
-      enfileirar(fila, ref_atual);
-      faltas++;
-    } 
+}
 
-    ref_atual = mem->referencias[i];
-    ref_cont++;
-  }
-  return faltas;
+void simula_lru(struct memoria mem) {
+  int *quadros = (int *)malloc(mem.qtd_quadros * sizeof(int));
+  int ponteiro = 0; // Ponteiro para o quadro mais antigo
+  
+  int faltas = 0;
+  int i = 0, j = 0;
+
+  printf("LRU %d\n", faltas);
 }
