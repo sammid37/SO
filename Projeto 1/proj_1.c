@@ -1,5 +1,5 @@
 // Sistemas Operacionais
-// Projeto 1
+// Projeto 1 - Escalonador de Processos
 // Samantha Dantas Medeiros @ 24/09/2023
 
 #include <stdio.h>
