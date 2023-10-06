@@ -1,4 +1,3 @@
-//* USAR ESTRUTURA DE PILHA
 // Sistemas Operacionais
 // Projeto 2 - Memória Virtual
 // Samantha Dantas Medeiros @ 05/10/2023
@@ -106,10 +105,8 @@ void simula_fifo(struct memoria mem) {
   int i = 0, j = 0;
 
   int ponteiro = 0; // Ponteiro para o quadro mais antigo
-  int pagina_na_memoria = 0; // Flag para verificar se a página existe na memória
   int *quadros = (int *)malloc(mem.qtd_quadros * sizeof(int));
 
-  
   if (quadros == NULL) {
     perror("Erro ao alocar memória para quadros.\nEncerrando...\n");
     exit(1);
@@ -120,6 +117,7 @@ void simula_fifo(struct memoria mem) {
 
   // Percorrendo referências às memórias, adicionando aos quadros e contando faltas de páginas
   for(i = 0; i < mem.qtd_referencias; i++) {
+    int pagina_na_memoria = 0; // Flag para verificar se a página existe na memória
     int pagina_referenciada = mem.referencias[i];
 
     // Percorre os quadros e verifica se a página está na memória
@@ -139,28 +137,97 @@ void simula_fifo(struct memoria mem) {
     }
   }
 
-  printf("FIFO %d\n", faltas);
+  printf("FIFO %d\n", faltas); // FIFO 10
 
   free(quadros); // libera a memória alocada
 }
 
 void simula_otm(struct memoria mem) {
-  int *quadros = (int *)malloc(mem.qtd_quadros * sizeof(int));
-  int ponteiro = 0; // Ponteiro para o quadro mais antigo
-  
   int faltas = 0;
-  int i = 0, j = 0;
+  int i = 0, j = 0, k = 0;
 
-  printf("OTM %d\n", faltas);
+  int *quadros = (int *)malloc(mem.qtd_quadros * sizeof(int));
+  int *futuro = (int *)malloc(mem.qtd_quadros * sizeof(int));
 
+  int ponteiro = 0, aux = 0; // Ponteiro para o quadro mais antigo
+  
+  if (quadros == NULL || futuro == NULL) {
+    perror("Erro ao alocar memória para quadros e chamadas futuras para o quadro.\nEncerrando...\n");
+    exit(1);
+  }
+
+  // Inicializando quadros
+  for(i = 0; i < mem.qtd_quadros; i++) { quadros[i] = -1; }
+
+  // Percorrendo referências às memórias, adicionando aos quadros e contando faltas de páginas
+  for (i = 0; i < mem.qtd_referencias; i++) {
+    int pagina_na_memoria = 0;
+    int pagina_referenciada = mem.referencias[i];
+
+    // Verifica se a página atual sendo referenciada existe na memória (quadros)
+    for (j = 0; j < mem.qtd_quadros; j++) {
+      if (quadros[j] == pagina_referenciada) {
+        pagina_na_memoria = 1;
+        break;
+      }
+    }
+
+    // Caso a página não esteja na memória...
+    if (!pagina_na_memoria) {
+        int max_distancia = -1;
+        int pagina_a_remover = -1;
+
+        // Encontra a página mais distante no futuro
+        for (j = 0; j < mem.qtd_quadros; j++) {
+          int encontrou_no_futuro = 0;
+          for (k = i + 1; k < mem.qtd_referencias; k++) {
+            if (quadros[j] == mem.referencias[k]) {
+              encontrou_no_futuro = 1;
+              if (k > max_distancia) {
+                max_distancia = k;
+                pagina_a_remover = j;
+              }
+              break;
+            }
+          }
+          if (!encontrou_no_futuro) {
+            pagina_a_remover = j; // Se não for encontrado no futuro, remove-o imediatamente.
+            break;
+          }
+        }
+
+      quadros[pagina_a_remover] = pagina_referenciada;
+      faltas++;
+    }
+  }
+
+  printf("OTM %d\n", faltas); // OTM 6
+
+  free(quadros); // libera a memória alocada
+  free(futuro);
 }
 
 void simula_lru(struct memoria mem) {
-  int *quadros = (int *)malloc(mem.qtd_quadros * sizeof(int));
-  int ponteiro = 0; // Ponteiro para o quadro mais antigo
-  
   int faltas = 0;
   int i = 0, j = 0;
 
-  printf("LRU %d\n", faltas);
+  int *quadros = (int *)malloc(mem.qtd_quadros * sizeof(int));
+  int ponteiro = 0; // Ponteiro para o quadro mais antigo
+
+  if (quadros == NULL) {
+    perror("Erro ao alocar memória para quadros.\nEncerrando...\n");
+    exit(1);
+  }
+
+  // Inicializando quadros
+  for(i = 0; i < mem.qtd_quadros; i++) { quadros[i] = -1; }
+
+  // Percorrendo referências às memórias, adicionando aos quadros e contando faltas de páginas
+  for(i = 0; i < mem.qtd_referencias; i++) {
+    int pagina_referenciada = mem.referencias[i];
+  }
+
+  printf("LRU %d\n", faltas); // LRU 8
+
+  free(quadros); // libera a memória alocada
 }
