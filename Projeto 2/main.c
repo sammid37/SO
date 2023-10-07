@@ -27,7 +27,8 @@ void simula_lru(struct memoria mem);
 
 int main() {
   FILE *arquivo;
-  arquivo = fopen("entrada.txt", "r"); // Substitua "arquivo.txt" pelo nome do seu arquivo de entrada
+  arquivo = fopen("testes/teste2.txt", "r"); // Substitua "arquivo.txt" pelo nome do seu arquivo de entrada
+  // arquivo = fopen("entrada.txt", "r"); // Substitua "arquivo.txt" pelo nome do seu arquivo de entrada
 
   if (arquivo == NULL) {
     fprintf(stderr, "Erro ao abrir o arquivo.\n");
@@ -237,7 +238,7 @@ void simula_lru(struct memoria mem) {
     if (pagina_na_memoria == 0) {
       for (j = 0; j < mem.qtd_quadros; j++) {
         if(quadros[j] == -1) {
-          quadros[j] == mem.referencias[i];
+          quadros[j] = mem.referencias[i];
           fluxo_paginas = 1;
           faltas++;
           break;
@@ -269,7 +270,7 @@ void simula_lru(struct memoria mem) {
         }
       }
       // substituindo coonteúdo do quadro e contabilizando falta de página
-      quadros[posicao] == mem.referencias[i];
+      quadros[posicao] = mem.referencias[i];
       faltas++;
     }
   }
