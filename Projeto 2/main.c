@@ -25,8 +25,6 @@ void simula_fifo(struct memoria mem);
 void simula_otm(struct memoria mem);
 void simula_lru(struct memoria mem);
 
-void imprime_result(char fila, int result);
-
 int main() {
   FILE *arquivo;
   arquivo = fopen("entrada.txt", "r"); // Substitua "arquivo.txt" pelo nome do seu arquivo de entrada
@@ -43,7 +41,7 @@ int main() {
   simula_fifo(mem);
   simula_otm(mem);
   simula_lru(mem);
-
+  // simula_lru_2(mem);
 
   free(mem.referencias); // Libera a memória alocada para o array de referências
   
@@ -147,11 +145,10 @@ void simula_otm(struct memoria mem) {
   int i = 0, j = 0, k = 0;
 
   int *quadros = (int *)malloc(mem.qtd_quadros * sizeof(int));
-  int *futuro = (int *)malloc(mem.qtd_quadros * sizeof(int));
 
   int ponteiro = 0, aux = 0; // Ponteiro para o quadro mais antigo
   
-  if (quadros == NULL || futuro == NULL) {
+  if (quadros == NULL) {
     perror("Erro ao alocar memória para quadros e chamadas futuras para o quadro.\nEncerrando...\n");
     exit(1);
   }
@@ -174,27 +171,27 @@ void simula_otm(struct memoria mem) {
 
     // Caso a página não esteja na memória...
     if (!pagina_na_memoria) {
-        int max_distancia = -1;
-        int pagina_a_remover = -1;
+      int max_distancia = -1;
+      int pagina_a_remover = -1;
 
-        // Encontra a página mais distante no futuro
-        for (j = 0; j < mem.qtd_quadros; j++) {
-          int encontrou_no_futuro = 0;
-          for (k = i + 1; k < mem.qtd_referencias; k++) {
-            if (quadros[j] == mem.referencias[k]) {
-              encontrou_no_futuro = 1;
-              if (k > max_distancia) {
-                max_distancia = k;
-                pagina_a_remover = j;
-              }
-              break;
+      // Encontra a página mais distante no futuro
+      for (j = 0; j < mem.qtd_quadros; j++) {
+        int encontrou_no_futuro = 0;
+        for (k = i + 1; k < mem.qtd_referencias; k++) {
+          if (quadros[j] == mem.referencias[k]) {
+            encontrou_no_futuro = 1;
+            if (k > max_distancia) {
+              max_distancia = k;
+              pagina_a_remover = j;
             }
-          }
-          if (!encontrou_no_futuro) {
-            pagina_a_remover = j; // Se não for encontrado no futuro, remove-o imediatamente.
             break;
           }
         }
+        if (!encontrou_no_futuro) {
+          pagina_a_remover = j; // Se não for encontrado no futuro, remove-o imediatamente.
+          break;
+        }
+      }
 
       quadros[pagina_a_remover] = pagina_referenciada;
       faltas++;
@@ -203,18 +200,18 @@ void simula_otm(struct memoria mem) {
 
   printf("OTM %d\n", faltas); // OTM 6
 
-  free(quadros); // libera a memória alocada
-  free(futuro);
+  // libera a memória alocada
+  free(quadros);
 }
 
 void simula_lru(struct memoria mem) {
   int faltas = 0;
-  int i = 0, j = 0;
+  int i = 0, j = 0, k = 0, l = 0;
 
   int *quadros = (int *)malloc(mem.qtd_quadros * sizeof(int));
-  int ponteiro = 0; // Ponteiro para o quadro mais antigo
+  int *aux = (int *)malloc(mem.qtd_quadros * sizeof(int)); 
 
-  if (quadros == NULL) {
+  if (quadros == NULL || aux == NULL) {
     perror("Erro ao alocar memória para quadros.\nEncerrando...\n");
     exit(1);
   }
@@ -224,10 +221,61 @@ void simula_lru(struct memoria mem) {
 
   // Percorrendo referências às memórias, adicionando aos quadros e contando faltas de páginas
   for(i = 0; i < mem.qtd_referencias; i++) {
-    int pagina_referenciada = mem.referencias[i];
+    int pagina_na_memoria = 0;
+    int fluxo_paginas = 0; // página atual foi inserida nos quadros ou uma página foi substituída durante este ciclo
+
+    // Verifica se a página atual sendo referenciada existe na memória (quadros)
+    for (j = 0; j < mem.qtd_quadros; j++) {
+      if (quadros[j] == mem.referencias[i]) {
+        pagina_na_memoria = 1;
+        fluxo_paginas = 1;
+        break;
+      }
+    }
+
+    // Caso a página não esteja na memória...
+    if (pagina_na_memoria == 0) {
+      for (j = 0; j < mem.qtd_quadros; j++) {
+        if(quadros[j] == -1) {
+          quadros[j] == mem.referencias[i];
+          fluxo_paginas = 1;
+          faltas++;
+          break;
+        }
+      }
+    }
+
+    // Caso a página atual tenha sido inserida ou uma página foi substituída no fluxo
+    if(fluxo_paginas == 0) {
+      for(j = 0; j < mem.qtd_quadros; j++) {
+        aux[j] = 0;
+      }
+
+      // Preenchendo aux com 1 para quando a referencia passada estiver no quadro
+      for(k = i - 1, l = 1; l <= mem.qtd_quadros - 1; l++, k--) {
+        for(j = 0; j < mem.qtd_quadros; j++) {
+          if(quadros[j] == mem.referencias[k]) {
+            aux[j] = 1;
+          }
+        }
+      }
+
+      // Caso algum índice de aux tenha ficado como zero, essa posição é salva
+      int posicao = 0;
+      for(j = 0; j < mem.qtd_quadros; j++) {
+        if(aux[j] == 0) {
+          posicao = j;
+          break;
+        }
+      }
+      // substituindo coonteúdo do quadro e contabilizando falta de página
+      quadros[posicao] == mem.referencias[i];
+      faltas++;
+    }
   }
 
   printf("LRU %d\n", faltas); // LRU 8
-
-  free(quadros); // libera a memória alocada
+  // libera a memória alocada
+  free(quadros); 
+  free(aux);
 }
