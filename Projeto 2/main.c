@@ -1,6 +1,6 @@
 // Sistemas Operacionais
 // Projeto 2 - Memória Virtual
-// Samantha Dantas Medeiros @ 05/10/2023
+// Samantha Dantas Medeiros @ 17/10/2023
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -27,8 +27,7 @@ void simula_lru(struct memoria mem);
 
 int main() {
   FILE *arquivo;
-  arquivo = fopen("testes/teste2.txt", "r"); // Substitua "arquivo.txt" pelo nome do seu arquivo de entrada
-  // arquivo = fopen("entrada.txt", "r"); // Substitua "arquivo.txt" pelo nome do seu arquivo de entrada
+  arquivo = fopen("entrada.txt", "r"); // Substitua pelo nome do seu arquivo de entrada
 
   if (arquivo == NULL) {
     fprintf(stderr, "Erro ao abrir o arquivo.\n");
@@ -38,11 +37,17 @@ int main() {
   struct memoria mem;
   mem = ler_referencias(arquivo);
 
+  /*printf("Número de quadros: %d\nReferências a memória: %d\n", mem.qtd_quadros, mem.qtd_referencias);
+  printf("Referências a memoria:\n");
+  for(int i = 0; i < mem.qtd_referencias; i++) {
+    printf("%d ", mem.referencias[i]);
+  }
+  printf("\n");*/
+
   // Exemplo de uso da estrutura preenchida
   simula_fifo(mem);
   simula_otm(mem);
   simula_lru(mem);
-  // simula_lru_2(mem);
 
   free(mem.referencias); // Libera a memória alocada para o array de referências
   
@@ -136,7 +141,7 @@ void simula_fifo(struct memoria mem) {
     }
   }
 
-  printf("FIFO %d\n", faltas); // FIFO 10
+  printf("FIFO %d\n", faltas); 
 
   free(quadros); // libera a memória alocada
 }
@@ -199,10 +204,9 @@ void simula_otm(struct memoria mem) {
     }
   }
 
-  printf("OTM %d\n", faltas); // OTM 6
+  printf("OTM %d\n", faltas);
 
-  // libera a memória alocada
-  free(quadros);
+  free(quadros); // libera a memória alocada
 }
 
 void simula_lru(struct memoria mem) {
@@ -275,7 +279,8 @@ void simula_lru(struct memoria mem) {
     }
   }
 
-  printf("LRU %d\n", faltas); // LRU 8
+  printf("LRU %d\n", faltas); 
+
   // libera a memória alocada
   free(quadros); 
   free(aux);
